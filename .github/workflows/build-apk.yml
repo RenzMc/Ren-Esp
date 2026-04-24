@@ -19,10 +19,12 @@ jobs:
         uses: actions/checkout@v4
         with:
           lfs: true
+          fetch-depth: 0   # penting buat hindari issue LFS kadang ga ke-fetch semua
 
-      - name: Verify LFS files
+      - name: Pull LFS objects
         run: |
           git lfs pull
+          git lfs checkout
           ls -lh app/src/main/assets/
 
       - name: Set up JDK 17
@@ -47,6 +49,11 @@ jobs:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+
+      - name: Check APK size
+        run: |
+          ls -lh app/build/outputs/apk/release/
+          du -h app/build/outputs/apk/release/app-release.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4

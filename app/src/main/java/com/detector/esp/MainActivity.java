@@ -41,7 +41,7 @@ import java.util.Locale;
 /**
  * 主 Activity — 实时 ESP 检测 + 设置
  */
-public class MainActivity extends Activity {
+public class MainActivity extends Activity implements LocationListener {
 
     private static final String TAG = "MainActivity";
     private static final int CAMERA_PERMISSION_CODE = 100;
@@ -243,7 +243,7 @@ public class MainActivity extends Activity {
         langBtn.setTextSize(16);
         langBtn.setPadding((int)(8*dp), (int)(12*dp), 0, (int)(8*dp));
         langBtn.setOnClickListener(v3 -> {
-            Lang.setEnglish(this, !Lang.isEnglish());
+            Lang.toggleLanguage(this);
             // 刷新对话框
             ((android.app.Dialog) langBtn.getTag()).dismiss();
             showSettingsDialog();

@@ -8,14 +8,10 @@ import com.detector.esp.preprocess.CpuPreprocessor;
 import com.detector.esp.utils.DetectResultPool;
 import com.detector.esp.utils.DetectionStabilizer;
 
-/**
- * 全局预加载器 — 在启动动画期间后台初始化所有组件
- */
 public class AppPreloader {
 
     private static final String TAG = "Preloader";
 
-    // 预加载的组件（静态持有，MainActivity 直接取用）
     public static volatile YoloDetector detector;
     public static volatile CpuPreprocessor preprocessor;
     public static volatile DetectResultPool resultPool;
@@ -24,9 +20,6 @@ public class AppPreloader {
     public static volatile String currentStep = "";
     public static volatile float progress = 0f;
 
-    /**
-     * 后台线程调用：加载所有组件
-     */
     public static void preload(Context context) {
         try {
             currentStep = "Loading AI model...";
@@ -55,9 +48,7 @@ public class AppPreloader {
         }
     }
 
-    /** MainActivity 取走组件后清空引用 */
     public static void consume() {
-        // 不清空，让 MainActivity 直接用 static 引用
-        // ready 保持 true，防止重复加载
+
     }
 }

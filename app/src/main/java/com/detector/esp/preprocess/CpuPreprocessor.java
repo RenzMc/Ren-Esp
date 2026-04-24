@@ -5,13 +5,6 @@ import android.util.Log;
 
 import java.nio.ByteBuffer;
 
-/**
- * CPU 前处理: YUV_420_888 → RGB 320x320
- *
- * 关键修复：
- * 1. 旋转 90°（传感器横向 → 竖屏方向）
- * 2. Letterbox 保持宽高比（不拉伸）
- */
 public class CpuPreprocessor {
 
     private static final String TAG = "CpuPreprocess";
@@ -19,9 +12,8 @@ public class CpuPreprocessor {
 
     private final int targetSize;
     private final byte[] rgbBytes;
-    private int rotation = 90;  // 传感器旋转角度
+    private int rotation = 90;
 
-    // letterbox 参数
     private float padTop;
     private float padLeft;
 
@@ -34,9 +26,6 @@ public class CpuPreprocessor {
         this.rotation = degrees;
     }
 
-    /**
-     * YUV_420_888 → 旋转 → Letterbox → RGB 320x320
-     */
     public byte[] processYuvImage(Image image, float softwareZoom) {
         try {
             int imgW = image.getWidth();
@@ -57,14 +46,12 @@ public class CpuPreprocessor {
             int uLimit = uBuf.remaining();
             int vLimit = vBuf.remaining();
 
-            // 软件变焦裁切（在原始方向上裁切）
             float cropFactor = Math.max(1.0f, softwareZoom);
             int cropW = (int) (imgW / cropFactor);
             int cropH = (int) (imgH / cropFactor);
             int cropX = (imgW - cropW) / 2;
             int cropY = (imgH - cropH) / 2;
 
-            // 旋转后的虚拟尺寸
             int rotW, rotH;
             if (rotation == 90 || rotation == 270) {
                 rotW = cropH;
@@ -74,7 +61,6 @@ public class CpuPreprocessor {
                 rotH = cropH;
             }
 
-            // Letterbox 计算
             float ratioW = (float) targetSize / rotW;
             float ratioH = (float) targetSize / rotH;
             float ratio = Math.min(ratioW, ratioH);
@@ -86,7 +72,6 @@ public class CpuPreprocessor {
             padLeft = (float) padX / targetSize;
             padTop = (float) padY / targetSize;
 
-            // 填灰
             for (int i = 0; i < rgbBytes.length; i++) {
                 rgbBytes[i] = (byte) GRAY;
             }
@@ -96,17 +81,16 @@ public class CpuPreprocessor {
 
             for (int row = 0; row < scaledH; row++) {
                 int dstRow = row + padY;
-                // 旋转后的虚拟坐标
+
                 int rotRow = (int) (row * srcScaleY);
 
                 for (int col = 0; col < scaledW; col++) {
                     int dstCol = col + padX;
                     int rotCol = (int) (col * srcScaleX);
 
-                    // 虚拟坐标 → 原始传感器坐标（逆旋转）
                     int srcCol, srcRow;
                     if (rotation == 90) {
-                        // 旋转90°: rotated(x,y) = original(y, W-1-x)
+
                         srcCol = cropX + rotRow;
                         srcRow = cropY + (cropH - 1 - rotCol);
                     } else if (rotation == 270) {
@@ -120,11 +104,9 @@ public class CpuPreprocessor {
                         srcRow = cropY + rotRow;
                     }
 
-                    // 边界检查
                     srcCol = Math.max(0, Math.min(imgW - 1, srcCol));
                     srcRow = Math.max(0, Math.min(imgH - 1, srcRow));
 
-                    // 读 YUV
                     int yIdx = srcRow * yRowStride + srcCol;
                     int y = (yIdx < yLimit) ? (yBuf.get(yIdx) & 0xFF) : 128;
 
@@ -134,7 +116,6 @@ public class CpuPreprocessor {
                     int u = (uvIdx < uLimit) ? (uBuf.get(uvIdx) & 0xFF) : 128;
                     int v = (uvIdx < vLimit) ? (vBuf.get(uvIdx) & 0xFF) : 128;
 
-                    // YUV → RGB
                     int r = y + (int) (1.402f * (v - 128));
                     int g = y - (int) (0.344136f * (u - 128)) - (int) (0.714136f * (v - 128));
                     int b = y + (int) (1.772f * (u - 128));

@@ -29,9 +29,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 
-/**
- * ESP V2 启动动画 — 军事系统初始化风格
- */
 public class SplashActivity extends Activity {
 
     @Override
@@ -43,7 +40,6 @@ public class SplashActivity extends Activity {
                 View.SYSTEM_UI_FLAG_HIDE_NAVIGATION |
                 View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
 
-        // 后台开始预加载模型
         new Thread(() -> AppPreloader.preload(getApplicationContext()), "Preloader").start();
 
         BootAnimView animView = new BootAnimView(this);
@@ -64,14 +60,12 @@ public class SplashActivity extends Activity {
         private final Paint glowPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
 
         private final long startTime = System.currentTimeMillis();
-        private static final long MIN_DURATION = 3000; // 最少3秒动画
+        private static final long MIN_DURATION = 3000;
         private boolean launched = false;
         private final Random rng = new Random(42);
 
-        // 真实系统信息（在构造函数里填充）
         private final String[] bootLines;
 
-        // 背景 hex 矩阵
         private final List<float[]> hexPositions = new ArrayList<>();
         private final List<String> hexValues = new ArrayList<>();
         private Bitmap iconBitmap;
@@ -115,10 +109,8 @@ public class SplashActivity extends Activity {
 
             glowPaint.setStyle(Paint.Style.FILL);
 
-            // 加载 app 图标
             iconBitmap = BitmapFactory.decodeResource(context.getResources(), R.mipmap.ic_launcher);
 
-            // 生成随机 hex 背景
             for (int i = 0; i < 200; i++) {
                 hexPositions.add(new float[]{rng.nextFloat(), rng.nextFloat()});
                 hexValues.add(String.format("%02X", rng.nextInt(256)));
@@ -132,17 +124,14 @@ public class SplashActivity extends Activity {
             int h = getHeight();
             float elapsed = System.currentTimeMillis() - startTime;
 
-            // 实际加载进度（0-1）
             float loadProgress = AppPreloader.progress;
-            // 动画时间进度（基于最少时间）
+
             float timeProgress = Math.min(1f, elapsed / MIN_DURATION);
-            // 综合进度：取两者较小值（动画和加载都要完成）
+
             float progress = Math.min(timeProgress, loadProgress);
 
-            // 黑色背景
             canvas.drawRect(0, 0, w, h, bgPaint);
 
-            // Phase 1 (0-0.6): 背景特效 + 启动日志
             drawHexBackground(canvas, w, h, elapsed);
             drawGrid(canvas, w, h, elapsed);
             drawScanLine(canvas, w, h, elapsed);
@@ -151,22 +140,19 @@ public class SplashActivity extends Activity {
                 drawBootLog(canvas, w, h, timeProgress / 0.65f);
             }
 
-            // Phase 2 (0.4-0.85): 标题渐入
             if (timeProgress > 0.35f) {
                 float titleProgress = Math.min(1f, (timeProgress - 0.35f) / 0.35f);
                 drawTitle(canvas, w, h, titleProgress, elapsed);
             }
 
-            // Phase 3: 实际加载进度条（显示真实加载状态）
             if (timeProgress > 0.45f) {
                 drawProgressBar(canvas, w, h, loadProgress);
             }
 
-            // 加载完成 + 动画最少时间到了 → 跳转
             boolean canLaunch = AppPreloader.ready && elapsed >= MIN_DURATION;
 
             if (canLaunch && !launched) {
-                // 白闪
+
                 canvas.drawColor(Color.argb(200, 255, 255, 255));
                 launched = true;
                 postDelayed(() -> {
@@ -175,7 +161,7 @@ public class SplashActivity extends Activity {
                     overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out);
                 }, 150);
             } else if (launched) {
-                // 白闪渐消
+
                 float fade = Math.min(1f, (elapsed - MIN_DURATION) / 200f);
                 canvas.drawColor(Color.argb((int)(200 * (1f - fade)), 255, 255, 255));
             }
@@ -193,7 +179,7 @@ public class SplashActivity extends Activity {
                 float[] pos = hexPositions.get(i);
                 float x = ((pos[0] + drift * (i % 3 + 1)) % 1.3f - 0.1f) * w;
                 float y = ((pos[1] + drift * 0.4f) % 1.2f - 0.1f) * h;
-                // 闪烁 + 旋转
+
                 float flicker = (float)(0.2 + 0.8 * Math.sin(elapsed * 0.002 + i * 0.5));
                 iconAlphaPaint.setAlpha((int)(50 * flicker));
                 float rot = (elapsed * 0.02f + i * 37) % 360;
@@ -237,19 +223,16 @@ public class SplashActivity extends Activity {
             for (int i = 0; i < Math.min(visibleLines, bootLines.length); i++) {
                 String line = bootLines[i];
 
-                // 最后一行打字机效果
                 if (i == visibleLines - 1 && visibleLines <= bootLines.length) {
                     float lineProgress = (progress * bootLines.length) - i;
                     int chars = (int)(lineProgress * line.length());
                     line = line.substring(0, Math.min(chars, line.length()));
 
-                    // 光标闪烁
                     if ((System.currentTimeMillis() / 300) % 2 == 0) {
                         line += "█";
                     }
                 }
 
-                // 颜色
                 if (line.contains("OK")) {
                     textPaint.setColor(0xFF00E676);
                 } else if (line.contains(">>>")) {
@@ -261,7 +244,6 @@ public class SplashActivity extends Activity {
                     textPaint.setColor(0xFF00E676);
                 }
 
-                // 渐隐旧行
                 float fadeAlpha = Math.max(0.2f, 1f - (visibleLines - i) * 0.08f);
                 textPaint.setAlpha((int)(255 * fadeAlpha));
 
@@ -274,21 +256,18 @@ public class SplashActivity extends Activity {
         private void drawTitle(Canvas canvas, int w, int h, float progress, float elapsed) {
             float centerY = h * 0.45f;
 
-            // 标题 "ESP" 大字 — 从模糊到清晰
             float scale = 0.8f + 0.2f * progress;
             float alpha = progress;
 
             canvas.save();
             canvas.scale(scale, scale, w / 2f, centerY);
 
-            // 外发光
             float glowAlpha = (float)(0.3 + 0.2 * Math.sin(elapsed * 0.004));
             titlePaint.setColor(0xFF00E676);
             titlePaint.setAlpha((int)(40 * alpha * glowAlpha));
             titlePaint.setTextSize(80f);
             canvas.drawText("E S P", w / 2f + 2, centerY + 2, titlePaint);
 
-            // 主标题
             titlePaint.setAlpha((int)(255 * alpha));
             titlePaint.setShader(new LinearGradient(w * 0.3f, centerY - 40,
                     w * 0.7f, centerY + 40,
@@ -300,14 +279,12 @@ public class SplashActivity extends Activity {
 
             canvas.restore();
 
-            // 副标题
             if (progress > 0.4f) {
                 float subAlpha = Math.min(1f, (progress - 0.4f) / 0.3f);
                 subtitlePaint.setAlpha((int)(255 * subAlpha));
                 canvas.drawText("DETECTION SYSTEM V2", w / 2f, centerY + 50, subtitlePaint);
             }
 
-            // 装饰线
             if (progress > 0.6f) {
                 float lineAlpha = Math.min(1f, (progress - 0.6f) / 0.2f);
                 float lineW = w * 0.4f * lineAlpha;
@@ -324,18 +301,15 @@ public class SplashActivity extends Activity {
         private String[] gatherSystemInfo(android.content.Context ctx) {
             List<String> lines = new ArrayList<>();
 
-            // 系统
             lines.add("[SYS] ESP Detection System v2.0");
             lines.add("[SYS] " + Build.MANUFACTURER.toUpperCase() + " " + Build.MODEL);
             lines.add("[SYS] Android " + Build.VERSION.RELEASE + " API " + Build.VERSION.SDK_INT);
 
-            // CPU
             String cpuModel = Build.HARDWARE;
             int cores = Runtime.getRuntime().availableProcessors();
             String cpuFreq = getCpuMaxFreq();
             lines.add("[CPU] " + cpuModel + " " + cores + " cores " + cpuFreq + " .. OK");
 
-            // 内存
             ActivityManager am = (ActivityManager) ctx.getSystemService(ACTIVITY_SERVICE);
             ActivityManager.MemoryInfo memInfo = new ActivityManager.MemoryInfo();
             am.getMemoryInfo(memInfo);
@@ -343,11 +317,9 @@ public class SplashActivity extends Activity {
             long availMB = memInfo.availMem / (1024 * 1024);
             lines.add("[MEM] " + totalMB + "MB total / " + availMB + "MB free .. OK");
 
-            // 屏幕
             DisplayMetrics dm = ctx.getResources().getDisplayMetrics();
             lines.add("[DSP] " + dm.widthPixels + "x" + dm.heightPixels + " " + dm.densityDpi + "dpi");
 
-            // 相机
             try {
                 CameraManager cm = (CameraManager) ctx.getSystemService(CAMERA_SERVICE);
                 String[] ids = cm.getCameraIdList();
@@ -374,7 +346,6 @@ public class SplashActivity extends Activity {
                 lines.add("[CAM] Camera probe failed");
             }
 
-            // AI 模型
             try {
                 String[] assets = ctx.getAssets().list("");
                 for (String a : assets) {
@@ -414,7 +385,6 @@ public class SplashActivity extends Activity {
             float barX = (w - barW) / 2f;
             float barY = h * 0.62f;
 
-            // 图标在进度条上方
             if (iconBitmap != null) {
                 int iconSize = 160;
                 float iconX = (w - iconSize) / 2f;
@@ -423,14 +393,11 @@ public class SplashActivity extends Activity {
                 canvas.drawBitmap(iconBitmap, null, dst, null);
             }
 
-            // 背景
             canvas.drawRoundRect(barX, barY, barX + barW, barY + barH, 2, 2, progressBgPaint);
 
-            // 填充
             float fillW = barW * progress;
             canvas.drawRoundRect(barX, barY, barX + fillW, barY + barH, 2, 2, progressFgPaint);
 
-            // 真实加载状态文字
             subtitlePaint.setTextSize(16f);
             subtitlePaint.setAlpha(180);
             String stepText = AppPreloader.currentStep;

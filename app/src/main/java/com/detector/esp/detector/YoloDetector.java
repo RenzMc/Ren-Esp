@@ -22,12 +22,6 @@ import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 
-/**
- * YOLOv8n FP16 检测器 — NNAPI Delegate
- *
- * 输入: [1, 320, 320, 3] float32 (归一化 0-1)
- * 输出: [1, 84, 2100] float32
- */
 public class YoloDetector {
 
     private static final String TAG = "YoloDetector";
@@ -36,12 +30,9 @@ public class YoloDetector {
     private static final float INPUT_SIZE_F = 320.0f;
     private static final int NUM_CLASSES = 80;
     private static final int NUM_BOXES = 2100;
-    private volatile float confidenceThreshold = 0.15f;  // 降低阈值，暗光也能识别
-    private static final float IOU_THRESHOLD = 0.35f;  // 更严格，防晃动重复框
+    private volatile float confidenceThreshold = 0.15f;
+    private static final float IOU_THRESHOLD = 0.35f;
 
-    // 标签从 Lang 获取（支持中英切换）
-
-    // 类别过滤：person, vehicle(1-8), animal(14-23), object(24-79)
     private volatile boolean enablePerson = true;
     private volatile boolean enableVehicle = true;
     private volatile boolean enableAnimal = true;
@@ -50,10 +41,9 @@ public class YoloDetector {
     private final Interpreter interpreter;
     private GpuDelegate gpuDelegate;
 
-    // 预分配 buffer — float32 输入
     private final ByteBuffer inputBuffer;
     private final float[][][] outputBuffer;
-    // 预计算 byte→float 查找表，避免每帧 30 万次除法
+
     private static final float[] BYTE_TO_FLOAT = new float[256];
     static {
         for (int i = 0; i < 256; i++) {
@@ -67,7 +57,6 @@ public class YoloDetector {
         Interpreter.Options options = new Interpreter.Options();
         options.setNumThreads(4);
 
-        // GPU Delegate 优先（大部分手机 GPU 比 NNAPI 快）
         boolean delegateOk = false;
         try {
             gpuDelegate = new GpuDelegate();
@@ -79,7 +68,6 @@ public class YoloDetector {
             gpuDelegate = null;
         }
 
-        // GPU 失败则尝试 NNAPI
         if (!delegateOk) {
             try {
                 org.tensorflow.lite.nnapi.NnApiDelegate nnapi =
@@ -98,7 +86,6 @@ public class YoloDetector {
 
         interpreter = new Interpreter(modelBuffer, options);
 
-        // float32 输入: 1 * 320 * 320 * 3 * 4 bytes
         inputBuffer = ByteBuffer.allocateDirect(1 * INPUT_SIZE * INPUT_SIZE * 3 * 4);
         inputBuffer.order(ByteOrder.nativeOrder());
 
@@ -114,14 +101,9 @@ public class YoloDetector {
         return channel.map(FileChannel.MapMode.READ_ONLY, afd.getStartOffset(), afd.getDeclaredLength());
     }
 
-    /**
-     * 从 RGB byte[320*320*3] 执行检测
-     * 内部将 uint8 RGB 转为 float32 归一化
-     */
     public void detect(byte[] rgbBytes, DetectResultPool pool) {
         pool.beginFrame();
 
-        // RGB uint8 → float32 归一化 [0,1]（查找表，零除法）
         inputBuffer.rewind();
         int len = INPUT_SIZE * INPUT_SIZE * 3;
         for (int i = 0; i < len; i++) {
@@ -129,10 +111,8 @@ public class YoloDetector {
         }
         inputBuffer.rewind();
 
-        // 推理
         interpreter.run(inputBuffer, outputBuffer);
 
-        // 后处理
         postProcess(outputBuffer[0], pool);
         pool.commitFrame();
     }
@@ -165,7 +145,6 @@ public class YoloDetector {
             String label = (maxClassId >= 0 && maxClassId < labels.length)
                     ? labels[maxClassId] : "obj";
 
-            // onnx2tf 导出的模型坐标已经是归一化 [0,1]，不需要除以 INPUT_SIZE
             float left = cx - w / 2f;
             float top = cy - h / 2f;
             float right = cx + w / 2f;
@@ -178,7 +157,6 @@ public class YoloDetector {
             candidates.add(r);
         }
 
-        // NMS
         Collections.sort(candidates, (a, b) -> Float.compare(b.confidence, a.confidence));
 
         while (!candidates.isEmpty()) {
@@ -226,7 +204,7 @@ public class YoloDetector {
         if (classId == 0) return enablePerson;
         if (classId >= 1 && classId <= 8) return enableVehicle;
         if (classId >= 14 && classId <= 23) return enableAnimal;
-        return enableObject;  // 9-13 + 24-79
+        return enableObject;
     }
 
     public int getInputSize() { return INPUT_SIZE; }

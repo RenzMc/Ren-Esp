@@ -6,19 +6,16 @@
     android:clipChildren="false"
     android:clipToPadding="false">
 
-    <!-- 相机预览 -->
     <TextureView
         android:id="@+id/texture_view"
         android:layout_width="match_parent"
         android:layout_height="match_parent" />
 
-    <!-- ESP 检测覆盖层 -->
     <com.detector.esp.ui.OverlayView
         android:id="@+id/overlay_view"
         android:layout_width="match_parent"
         android:layout_height="match_parent" />
 
-    <!-- 变焦倍数显示 -->
     <TextView
         android:id="@+id/zoom_text"
         android:layout_width="wrap_content"
@@ -33,7 +30,6 @@
         android:paddingHorizontal="12dp"
         android:paddingVertical="4dp" />
 
-    <!-- 设置按钮（左上角） -->
     <TextView
         android:id="@+id/settings_btn"
         android:layout_width="wrap_content"
@@ -48,7 +44,6 @@
         android:paddingHorizontal="10dp"
         android:paddingVertical="6dp" />
 
-    <!-- iPhone 风格可滑动变焦刻度盘 -->
     <com.detector.esp.ui.ZoomDialView
         android:id="@+id/zoom_dial"
         android:layout_width="match_parent"

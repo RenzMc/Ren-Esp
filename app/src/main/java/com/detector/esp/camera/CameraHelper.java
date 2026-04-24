@@ -31,9 +31,6 @@ import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicReference;
 
-/**
- * Camera2 封装 — 支持数码变焦 + 拍照
- */
 public class CameraHelper {
 
     private static final String TAG = "CameraHelper";
@@ -44,30 +41,28 @@ public class CameraHelper {
 
     private CameraDevice cameraDevice;
     private CameraCaptureSession captureSession;
-    private ImageReader imageReader;       // 低分辨率分析帧
+    private ImageReader imageReader;
     private HandlerThread cameraThread;
     private Handler cameraHandler;
-    private Handler mainHandler;           // 主线程 Handler，用于 UI 操作
+    private Handler mainHandler;
     private CaptureRequest.Builder previewBuilder;
 
     private final AtomicReference<Image> latestFrame = new AtomicReference<>(null);
 
     private final TextureView textureView;
     private final Context context;
-    private Size previewSize;   // 高分辨率预览
-    private Size analysisSize;  // 低分辨率分析
-    private Size captureSize;   // 最高画质拍照
-    private ImageReader jpegReader; // JPEG 拍照用
+    private Size previewSize;
+    private Size analysisSize;
+    private Size captureSize;
+    private ImageReader jpegReader;
 
-    // 传感器信息
     private Rect sensorArraySize;
     private int sensorOrientation = 90;
     private float currentZoom = 1.0f;
-    private float hFovDegrees = 70f;  // 水平 FOV（动态读取）
-    private float vFovDegrees = 50f;  // 垂直 FOV（动态读取）
+    private float hFovDegrees = 70f;
+    private float vFovDegrees = 50f;
     private float maxZoom = 1.0f;
     private static final float MAX_DIGITAL_ZOOM = 1000.0f;
-
 
     public CameraHelper(Context context, TextureView textureView) {
         this.context = context;
@@ -103,9 +98,9 @@ public class CameraHelper {
 
             CameraCharacteristics chars = manager.getCameraCharacteristics(cameraId);
             StreamConfigurationMap map = chars.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
-            previewSize = chooseHighResSize(map);    // 1080p 预览
-            analysisSize = chooseLowResSize(map);    // 640x480 分析
-            captureSize = chooseMaxJpegSize(map);    // 最高画质拍照
+            previewSize = chooseHighResSize(map);
+            analysisSize = chooseLowResSize(map);
+            captureSize = chooseMaxJpegSize(map);
 
             sensorArraySize = chars.get(CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE);
             Integer orientation = chars.get(CameraCharacteristics.SENSOR_ORIENTATION);
@@ -113,7 +108,6 @@ public class CameraHelper {
             Float maxZoomVal = chars.get(CameraCharacteristics.SCALER_AVAILABLE_MAX_DIGITAL_ZOOM);
             maxZoom = (maxZoomVal != null) ? maxZoomVal : 10.0f;
 
-            // 动态读取 FOV（适配所有手机）
             float[] focalLengths = chars.get(CameraCharacteristics.LENS_INFO_AVAILABLE_FOCAL_LENGTHS);
             android.util.SizeF sensorSize = chars.get(CameraCharacteristics.SENSOR_INFO_PHYSICAL_SIZE);
             if (focalLengths != null && focalLengths.length > 0 && sensorSize != null) {
@@ -127,7 +121,6 @@ public class CameraHelper {
                     + " 传感器旋转: " + sensorOrientation + "° 硬件变焦: " + maxZoom + "x"
                     + " FOV: " + String.format("%.1f°x%.1f°", hFovDegrees, vFovDegrees));
 
-            // ImageReader 用低分辨率做检测
             imageReader = ImageReader.newInstance(
                     analysisSize.getWidth(), analysisSize.getHeight(),
                     ImageFormat.YUV_420_888, 4
@@ -140,11 +133,10 @@ public class CameraHelper {
                         if (old != null) old.close();
                     }
                 } catch (IllegalStateException e) {
-                    // maxImages 达上限
+
                 }
             }, cameraHandler);
 
-            // JPEG 拍照 ImageReader（最高画质）
             jpegReader = ImageReader.newInstance(
                     captureSize.getWidth(), captureSize.getHeight(),
                     ImageFormat.JPEG, 2);
@@ -184,12 +176,11 @@ public class CameraHelper {
             previewBuilder.addTarget(analysisSurface);
             previewBuilder.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_VIDEO);
             previewBuilder.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON);
-            // 暗光优化：场景模式夜间 + 降噪高质量
+
             previewBuilder.set(CaptureRequest.CONTROL_SCENE_MODE, CaptureRequest.CONTROL_SCENE_MODE_NIGHT);
             previewBuilder.set(CaptureRequest.CONTROL_MODE, CaptureRequest.CONTROL_MODE_USE_SCENE_MODE);
             previewBuilder.set(CaptureRequest.NOISE_REDUCTION_MODE, CaptureRequest.NOISE_REDUCTION_MODE_HIGH_QUALITY);
 
-            // 应用当前变焦
             applyZoom(previewBuilder);
 
             cameraDevice.createCaptureSession(
@@ -202,7 +193,6 @@ public class CameraHelper {
                                 session.setRepeatingRequest(previewBuilder.build(), null, cameraHandler);
                                 Log.i(TAG, "相机预览已启动: " + previewSize + " 变焦: " + currentZoom + "x");
 
-                                // ✅ Bug fix #1：configureTransform 必须在主线程调用
                                 mainHandler.post(() -> configureTransform());
                             } catch (CameraAccessException e) {
                                 Log.e(TAG, "Repeating request failed", e);
@@ -219,11 +209,6 @@ public class CameraHelper {
         }
     }
 
-    /**
-     * 设置变焦倍数（1.0 ~ 1000.0）
-     * 1-maxZoom: 硬件变焦
-     * maxZoom-1000: 软件裁切（CpuPreprocessor 中心裁切）
-     */
     public void setZoom(float zoom) {
         zoom = Math.max(1.0f, Math.min(MAX_DIGITAL_ZOOM, zoom));
         currentZoom = zoom;
@@ -241,11 +226,6 @@ public class CameraHelper {
     public float getZoom() { return currentZoom; }
     public float getMaxHardwareZoom() { return maxZoom; }
 
-    /**
-     * 获取软件变焦因子：超过硬件最大倍数的部分
-     * 例如：当前 zoom=40x，硬件 max=8x，则软件因子=40/8=5.0
-     * CpuPreprocessor 用这个值来做中心裁切
-     */
     public float getSoftwareZoomFactor() {
         if (currentZoom <= maxZoom) return 1.0f;
         return currentZoom / maxZoom;
@@ -254,10 +234,8 @@ public class CameraHelper {
     private void applyZoom(CaptureRequest.Builder builder) {
         if (sensorArraySize == null) return;
 
-        // 硬件变焦：限制到硬件最大值
         float hwZoom = Math.min(currentZoom, maxZoom);
 
-        // ✅ Bug fix #2：cropW/cropH 最小为 1，防止 zoom 极大时产生非法 Rect 导致 crash
         int cropW = Math.max(1, (int) (sensorArraySize.width() / hwZoom));
         int cropH = Math.max(1, (int) (sensorArraySize.height() / hwZoom));
         int cropX = (sensorArraySize.width() - cropW) / 2;
@@ -267,9 +245,6 @@ public class CameraHelper {
         builder.set(CaptureRequest.SCALER_CROP_REGION, cropRegion);
     }
 
-    /**
-     * 冻结预览画面（停止刷新 TextureView，但相机仍在运行）
-     */
     public void freezePreview() {
         if (captureSession != null) {
             try {
@@ -281,9 +256,6 @@ public class CameraHelper {
         }
     }
 
-    /**
-     * 恢复预览画面
-     */
     public void unfreezePreview() {
         if (captureSession != null && previewBuilder != null) {
             try {
@@ -295,12 +267,9 @@ public class CameraHelper {
         }
     }
 
-    /**
-     * 拍照：使用 Camera2 STILL_CAPTURE 获取传感器最高分辨率 JPEG
-     */
     public void takePhoto(PhotoCallback callback) {
         if (cameraDevice == null || captureSession == null || jpegReader == null) {
-            // fallback: 使用 TextureView
+
             mainHandler.post(() -> {
                 Bitmap photo = textureView.getBitmap();
                 if (photo != null) callback.onPhotoTaken(photo);
@@ -308,7 +277,6 @@ public class CameraHelper {
             return;
         }
 
-        // 设置 JPEG 回调
         jpegReader.setOnImageAvailableListener(reader -> {
             Image image = null;
             try {
@@ -318,7 +286,7 @@ public class CameraHelper {
                     byte[] jpegData = new byte[buffer.remaining()];
                     buffer.get(jpegData);
                     Bitmap raw = android.graphics.BitmapFactory.decodeByteArray(jpegData, 0, jpegData.length);
-                    // JPEG 是传感器原始方向，需要根据 sensorOrientation 旋转
+
                     Bitmap photo;
                     if (sensorOrientation != 0) {
                         android.graphics.Matrix rotMatrix = new android.graphics.Matrix();
@@ -344,8 +312,8 @@ public class CameraHelper {
             captureBuilder.addTarget(jpegReader.getSurface());
             captureBuilder.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE);
             captureBuilder.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON);
-            captureBuilder.set(CaptureRequest.JPEG_QUALITY, (byte) 100);  // 最高画质
-            // 继承当前变焦
+            captureBuilder.set(CaptureRequest.JPEG_QUALITY, (byte) 100);
+
             applyZoom(captureBuilder);
 
             captureSession.capture(captureBuilder.build(), null, cameraHandler);
@@ -355,32 +323,21 @@ public class CameraHelper {
         }
     }
 
-    /**
-     * 推理线程调用：获取最新帧
-     * 注意：调用方负责在使用完毕后调用 image.close()，否则会导致内存泄漏
-     */
     public Image pollLatestFrame() {
         return latestFrame.getAndSet(null);
     }
 
-    /**
-     * 配置 TextureView 变换矩阵，使预览画面居中裁切而不是拉伸
-     * ✅ Bug fix #4：使用实际 sensorOrientation 而非硬编码 90°
-     */
     private void configureTransform() {
         if (textureView == null || previewSize == null) return;
         int viewW = textureView.getWidth();
         int viewH = textureView.getHeight();
         if (viewW == 0 || viewH == 0) return;
 
-        // 系统已通过 SurfaceTexture 内部矩阵处理旋转，不需要手动旋转
-        // 旋转后有效尺寸：portrait 模式下 bufH x bufW
         float effW = (sensorOrientation == 90 || sensorOrientation == 270)
                 ? previewSize.getHeight() : previewSize.getWidth();
         float effH = (sensorOrientation == 90 || sensorOrientation == 270)
                 ? previewSize.getWidth() : previewSize.getHeight();
 
-        // center-crop：均匀缩放填满 view，裁掉多余部分
         float scaleX = (float) viewW / effW;
         float scaleY = (float) viewH / effH;
         float scale = Math.max(scaleX, scaleY);
@@ -425,7 +382,6 @@ public class CameraHelper {
         return null;
     }
 
-    /** 预览分辨率：1080p */
     private Size chooseHighResSize(StreamConfigurationMap map) {
         Size[] sizes = map.getOutputSizes(SurfaceTexture.class);
         for (Size s : sizes) {
@@ -445,7 +401,6 @@ public class CameraHelper {
         return best;
     }
 
-    /** 拍照分辨率：传感器最大 JPEG 尺寸 */
     private Size chooseMaxJpegSize(StreamConfigurationMap map) {
         Size[] sizes = map.getOutputSizes(ImageFormat.JPEG);
         Size best = sizes[0];
@@ -458,13 +413,11 @@ public class CameraHelper {
         return best;
     }
 
-    /** 低分辨率：给 ImageReader 做检测分析（匹配预览宽高比） */
     private Size chooseLowResSize(StreamConfigurationMap map) {
         Size[] sizes = map.getOutputSizes(ImageFormat.YUV_420_888);
-        // 计算预览宽高比
-        float previewRatio = (float) previewSize.getWidth() / previewSize.getHeight(); // 1920/1080 ≈ 1.78
 
-        // 优先找跟预览宽高比一致的小分辨率（16:9）
+        float previewRatio = (float) previewSize.getWidth() / previewSize.getHeight();
+
         Size best = null;
         float bestDiff = Float.MAX_VALUE;
         for (Size s : sizes) {
@@ -481,7 +434,6 @@ public class CameraHelper {
             return best;
         }
 
-        // 回退到 640x480
         for (Size s : sizes) {
             if (s.getWidth() == 640 && s.getHeight() == 480) return s;
         }

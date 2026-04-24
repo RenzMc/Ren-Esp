@@ -1,10 +1,7 @@
 package com.detector.esp.utils;
 
-/**
- * 检测结果 — 可复用对象，含轨迹数据
- */
 public class DetectResult {
-    public float left;    // 归一化 [0,1]
+    public float left;
     public float top;
     public float right;
     public float bottom;
@@ -12,10 +9,9 @@ public class DetectResult {
     public String label;
     public float confidence;
 
-    // 轨迹数据（由 DetectionStabilizer 填充）
-    public float velX, velY;     // 补偿后的真实速度
-    public float predX, predY;   // 预测位置（中心点）
-    public static final int MAX_TRAIL = 30;  // 最多30帧≈2秒
+    public float velX, velY;
+    public float predX, predY;
+    public static final int MAX_TRAIL = 30;
     public float[] trailX = new float[MAX_TRAIL];
     public float[] trailY = new float[MAX_TRAIL];
     public int trailLen = 0;

@@ -1,30 +1,30 @@
-# ESP Detector
+# Ren-ESP
 
-Real-time object detection Android app with game-style ESP (Extra Sensory Perception) overlay.
+Aplikasi Android buat deteksi objek real-time pake gaya overlay ESP (Extra Sensory Perception) kayak di game.
 
-> Android 8.0+ required. No root needed.
+> Wajib Android 8.0+. Gak perlu root, santai aja.
 
-## Features
+## Fitur
 
-- **Real-time Detection** — YOLOv8n INT8 model, 80 COCO classes, ~18 FPS on mid-range phones
-- **ESP Overlay** — Game-style bounding boxes with glow effects, corner brackets, crosshairs
-- **Snaplines** — Tracking lines from screen top to each target
-- **Distance Estimation** — Real-time distance calculation based on camera FOV and object size
-- **Radar** — Semi-circular minimap showing target positions and distances
-- **Trajectory Tracking** — Motion trails and prediction arrows for moving targets
-- **Target Lock** — "LOCKED" indicator on closest target to screen center
-- **30fps Interpolated Rendering** — Smooth overlay animation via Choreographer
-- **iPhone-style Zoom** — Pinch-to-zoom + arc dial with preset buttons (1x-1000x)
-- **GPS HUD** — Real-time coordinates, speed, satellite count
-- **Satellite Monitor** — Sky plot visualization of all visible GNSS satellites
-- **Category Filtering** — Toggle Person / Vehicle / Animal / Object detection
-- **Bilingual** — Chinese / English / Indonesian language switch
-- **Boot Animation** — Cyberpunk-style splash screen with real hardware info
+- **Deteksi Real-time** — Pake model YOLOv8n INT8, support 80 kelas COCO, ngebut sampe ~18 FPS di hape kelas mid-range
+- **Overlay ESP** — Bounding box ala game, ada efek glow, corner bracket, sama crosshair
+- **Snapline** — Garis tracking dari atas layar ke tiap target
+- **Estimasi Jarak** — Hitung jarak real-time pake FOV kamera sama ukuran objek
+- **Radar** — Minimap setengah lingkaran nunjukin posisi sama jarak target
+- **Tracking Trajectory** — Jejak gerakan sama panah prediksi buat target yang lagi gerak
+- **Target Lock** — Indikator "LOCKED" otomatis nempel ke target paling deket sama tengah layar
+- **Render Halus 30fps** — Animasi overlay smooth pake Choreographer
+- **Zoom Ala iPhone** — Pinch-to-zoom + arc dial sama tombol preset (1x sampe 1000x)
+- **HUD GPS** — Koordinat real-time, kecepatan, jumlah satelit
+- **Monitor Satelit** — Sky plot semua satelit GNSS yang keliatan
+- **Filter Kategori** — Toggle deteksi Person / Vehicle / Animal / Object sesuka lo
+- **Bilingual** — Bisa ganti bahasa Mandarin / Inggris / Indonesia
+- **Boot Animation** — Splash screen ala cyberpunk lengkap sama info hardware asli
 
-## Architecture
+## Arsitektur
 
 ```
-Camera (1080p preview + 640x480 analysis)
+Camera (preview 1080p + analysis 640x480)
   |
   v
 CpuPreprocessor (YUV->RGB, rotate, letterbox, 320x320)
@@ -36,42 +36,39 @@ YoloDetector (TFLite INT8, GPU Delegate)
 DetectionStabilizer (IOU tracking, EMA smoothing, trajectory)
   |
   v
-OverlayView (Choreographer 30fps, interpolation, ESP rendering)
+OverlayView (Choreographer 30fps, interpolation, render ESP)
 ```
 
 ## Tech Stack
 
-- **Language**: Java
+- **Bahasa**: Java
 - **Camera**: Camera2 API
 - **ML**: TensorFlow Lite + GPU Delegate
 - **Model**: YOLOv8n INT8 quantized (3.2MB)
-- **Rendering**: Android Canvas + Hardware Acceleration
-- **Location**: GNSS API + Fused Location
+- **Render**: Android Canvas + Hardware Acceleration
+- **Lokasi**: GNSS API + Fused Location
 
-## Requirements
+## Syarat Pemakaian
 
 - Android 8.0+ (API 26)
-- Camera permission
-- Location permission (optional, for GPS features)
+- Izin kamera
+- Izin lokasi (opsional, kalo mau pake fitur GPS)
 
-## Build
+## Cara Build
 
 ```bash
-# Clone
 git clone https://github.com/RenzMc/Ren-Esp.git
-cd ESP-Detector
+cd Ren-Esp
 
-# Build
 ./gradlew assembleDebug
 
-# Install
 adb install app/build/outputs/apk/debug/app-debug.apk
 ```
 
-## Device Compatibility
+## Kompatibilitas Device
 
-The app dynamically reads camera FOV, sensor orientation, and screen dimensions at runtime. Tested on Samsung Galaxy A36 and Itel p55 5g and Infinix smart 10 but designed to work on any Android device with a back camera.
+Aplikasinya baca FOV kamera, orientasi sensor, sama dimensi layar otomatis pas runtime. Udah dites di Samsung Galaxy A36, Itel p55 5g, sama Infinix smart 10 — tapi harusnya jalan di hape Android manapun yang punya kamera belakang.
 
-## License
+## Lisensi
 
-MIT License - see [LICENSE](LICENSE) for details.
+MIT License — cek file [LICENSE](LICENSE) buat detailnya.

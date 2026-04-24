@@ -23,22 +23,13 @@ import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 
-/**
- * 深度扫描器 — 用 YOLOv8s 大模型 + 多尺度 + 低阈值
- *
- * 不要求速度，要求精度。拍照后慢慢扫：
- * 1. 全图扫描（480x480）
- * 2. 四象限分块扫描（每块单独缩放到 480x480）
- * 3. 极低阈值（0.1）
- * 4. 合并所有结果 NMS 去重
- */
 public class DeepScanner {
 
     private static final String TAG = "DeepScanner";
     private static final String MODEL_FILE = "yolov8x_fp16.tflite";
-    private static final int INPUT_SIZE = 640;  // YOLOv8x 用 640x640
+    private static final int INPUT_SIZE = 640;
     private static final int NUM_CLASSES = 80;
-    private static final int NUM_BOXES = 8400;  // 640x640 对应
+    private static final int NUM_BOXES = 8400;
     private static final float DEEP_THRESHOLD = 0.50f;
     private static final float IOU_THRESHOLD = 0.45f;
 
@@ -49,7 +40,6 @@ public class DeepScanner {
     private final ByteBuffer inputBuffer;
     private final float[][][] outputBuffer;
 
-    // 查找表
     private static final float[] B2F = new float[256];
     static { for (int i = 0; i < 256; i++) B2F[i] = i / 255.0f; }
 
@@ -74,18 +64,13 @@ public class DeepScanner {
         Log.i(TAG, "深度扫描模型加载: " + MODEL_FILE + " (" + INPUT_SIZE + "x" + INPUT_SIZE + ")");
     }
 
-    /**
-     * 对照片进行深度扫描，返回标注后的 Bitmap
-     */
     public Bitmap scan(Bitmap photo, ProgressCallback progress) {
         int imgW = photo.getWidth();
         int imgH = photo.getHeight();
         Log.i(TAG, "深度扫描开始: " + imgW + "x" + imgH);
 
-        // 阶段1: Letterbox 准备图像 10%
         if (progress != null) progress.onProgress(10, 100, "准备图像...");
 
-        // Letterbox: 保持宽高比缩放到 640x640
         float ratioW = (float) INPUT_SIZE / imgW;
         float ratioH = (float) INPUT_SIZE / imgH;
         float ratio = Math.min(ratioW, ratioH);
@@ -101,14 +86,13 @@ public class DeepScanner {
 
         Bitmap resized = Bitmap.createScaledBitmap(photo, scaledW, scaledH, true);
 
-        // 阶段2: 预处理（letterbox 填充灰色）20%
         if (progress != null) progress.onProgress(20, 100, "预处理中...");
         int[] scaledPixels = new int[scaledW * scaledH];
         resized.getPixels(scaledPixels, 0, scaledW, 0, 0, scaledW, scaledH);
         resized.recycle();
 
         inputBuffer.rewind();
-        // 逐行写入，包含灰色填充
+
         for (int row = 0; row < INPUT_SIZE; row++) {
             for (int col = 0; col < INPUT_SIZE; col++) {
                 int srcRow = row - padY;
@@ -119,7 +103,7 @@ public class DeepScanner {
                     inputBuffer.putFloat(B2F[(pixel >> 8) & 0xFF]);
                     inputBuffer.putFloat(B2F[pixel & 0xFF]);
                 } else {
-                    // 灰色填充
+
                     inputBuffer.putFloat(0.5f);
                     inputBuffer.putFloat(0.5f);
                     inputBuffer.putFloat(0.5f);
@@ -128,11 +112,9 @@ public class DeepScanner {
         }
         inputBuffer.rewind();
 
-        // 阶段3: YOLOv8x 推理 30%→80%
         if (progress != null) progress.onProgress(30, 100, "YOLOv8x 高精度推理中...");
         interpreter.run(inputBuffer, outputBuffer);
 
-        // 阶段4: 后处理 85%
         if (progress != null) progress.onProgress(85, 100, "分析检测结果...");
         float[][] output = outputBuffer[0];
         List<DetectionBox> rawResults = new ArrayList<>();
@@ -157,13 +139,11 @@ public class DeepScanner {
             }
             if (label == null) continue;
 
-            // 像素坐标 → 归一化 → 去除 letterbox padding → 原图坐标
             float normLeft = (cx - w / 2f) / INPUT_SIZE;
             float normTop = (cy - h / 2f) / INPUT_SIZE;
             float normRight = (cx + w / 2f) / INPUT_SIZE;
             float normBottom = (cy + h / 2f) / INPUT_SIZE;
 
-            // 去掉 letterbox padding
             float realLeft = (normLeft - padLeft) / contentW;
             float realTop = (normTop - padTop) / contentH;
             float realRight = (normRight - padLeft) / contentW;
@@ -175,12 +155,10 @@ public class DeepScanner {
                     maxClassId, label, maxScore));
         }
 
-        // 阶段5: NMS 去重 90%
         if (progress != null) progress.onProgress(90, 100, "去重过滤...");
         List<DetectionBox> finalResults = nms(rawResults);
         Log.i(TAG, "深度扫描完成: " + finalResults.size() + " 个目标");
 
-        // 阶段6: 绘制结果 95%→100%
         if (progress != null) progress.onProgress(95, 100, "绘制标注...");
         Bitmap result = drawResults(photo, finalResults);
 
@@ -193,12 +171,10 @@ public class DeepScanner {
         int regionH = y2 - y1;
         if (regionW <= 0 || regionH <= 0) return Collections.emptyList();
 
-        // 裁切区域并缩放到模型输入
         Bitmap region = Bitmap.createBitmap(photo, x1, y1, regionW, regionH);
         Bitmap resized = Bitmap.createScaledBitmap(region, INPUT_SIZE, INPUT_SIZE, true);
         if (region != photo) region.recycle();
 
-        // 转 float32 输入
         int[] pixels = new int[INPUT_SIZE * INPUT_SIZE];
         resized.getPixels(pixels, 0, INPUT_SIZE, 0, 0, INPUT_SIZE, INPUT_SIZE);
         resized.recycle();
@@ -211,10 +187,8 @@ public class DeepScanner {
         }
         inputBuffer.rewind();
 
-        // 推理
         interpreter.run(inputBuffer, outputBuffer);
 
-        // 后处理：坐标映射回原图
         List<DetectionBox> results = new ArrayList<>();
         float[][] output = outputBuffer[0];
         int imgW = photo.getWidth();
@@ -241,19 +215,16 @@ public class DeepScanner {
             }
             if (label == null) continue;
 
-            // 模型输出是像素坐标(0-480)，先归一化到[0,1]
             float localLeft = (cx - w / 2f) / INPUT_SIZE;
             float localTop = (cy - h / 2f) / INPUT_SIZE;
             float localRight = (cx + w / 2f) / INPUT_SIZE;
             float localBottom = (cy + h / 2f) / INPUT_SIZE;
 
-            // 映射到原图像素坐标
             float absLeft = x1 + localLeft * regionW;
             float absTop = y1 + localTop * regionH;
             float absRight = x1 + localRight * regionW;
             float absBottom = y1 + localBottom * regionH;
 
-            // 归一化到原图 [0,1]
             results.add(new DetectionBox(
                     clamp(absLeft / imgW), clamp(absTop / imgH),
                     clamp(absRight / imgW), clamp(absBottom / imgH),
@@ -326,7 +297,6 @@ public class DeepScanner {
             canvas.drawRect(left, top, right, bottom, fillPaint);
             canvas.drawRect(left, top, right, bottom, boxPaint);
 
-            // 四角加强
             float cLen = Math.min(right - left, bottom - top) * 0.15f;
             boxPaint.setStrokeWidth(6f);
             canvas.drawLine(left, top, left + cLen, top, boxPaint);
@@ -346,7 +316,6 @@ public class DeepScanner {
             canvas.drawText(label, left + 6, ly + 38, textPaint);
         }
 
-        // 底部统计
         int personCount = 0, carCount = 0;
         for (DetectionBox r : results) {
             if (r.classId == 0) personCount++;

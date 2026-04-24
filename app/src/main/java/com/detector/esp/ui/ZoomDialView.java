@@ -12,12 +12,6 @@ import android.view.MotionEvent;
 import android.view.View;
 import android.view.animation.DecelerateInterpolator;
 
-/**
- * iPhone 风格半圆弧变焦刻度盘
- *
- * 默认：圆形倍数按钮（1x 2x 5x 10x 100x）
- * 长按/拖动：展开为半圆弧刻度盘，沿弧线滑动调整 1x-1000x
- */
 public class ZoomDialView extends View {
 
     public interface OnZoomChangeListener {
@@ -26,39 +20,32 @@ public class ZoomDialView extends View {
 
     private OnZoomChangeListener listener;
 
-    // 预设
     private static final float[] PRESETS = {1f, 2f, 5f, 10f, 100f};
     private static final String[] PRESET_LABELS = {"1", "2", "5", "10", "100"};
 
-    // 刻度标记
     private static final float[] TICK_ZOOMS = {1, 1.5f, 2, 3, 5, 7, 10, 15, 20, 30, 50, 70, 100, 150, 200, 300, 500, 700, 1000};
     private static final float[] LABEL_ZOOMS = {1, 2, 5, 10, 50, 100, 500, 1000};
 
     private static final float MIN_ZOOM = 1f;
     private static final float MAX_ZOOM = 1000f;
 
-    // 弧形参数
-    private static final float ARC_START_ANGLE = 200f;  // 左下方开始
-    private static final float ARC_SWEEP_ANGLE = 140f;  // 顺时针经过顶部到右下方（彩虹形）
+    private static final float ARC_START_ANGLE = 200f;
+    private static final float ARC_SWEEP_ANGLE = 140f;
 
-    // 状态
     private float currentZoom = 1f;
     private boolean expanded = true;
-    private float expandProgress = 1f;  // 默认展开，调试用
+    private float expandProgress = 1f;
 
-    // 触摸
     private float touchStartAngle;
     private float zoomAtTouchStart;
     private boolean isDragging = false;
     private long touchDownTime;
 
-    // 尺寸
     private float density;
     private float btnSize;
     private float arcRadius;
     private float arcCenterX, arcCenterY;
 
-    // 画笔
     private final Paint btnBgPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint btnActiveBgPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint btnBorderPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -120,7 +107,6 @@ public class ZoomDialView extends View {
         zoomLabelPaint.setTextAlign(Paint.Align.CENTER);
         zoomLabelPaint.setFakeBoldText(true);
 
-        // 不设置 layer type，使用默认硬件加速
     }
 
     public void setOnZoomChangeListener(OnZoomChangeListener l) { this.listener = l; }
@@ -134,23 +120,19 @@ public class ZoomDialView extends View {
 
     private float clamp(float z) { return Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, z)); }
 
-    /** zoom → 归一化 0-1（对数） */
     private float zoomToNorm(float zoom) {
         return (float)(Math.log10(zoom) / Math.log10(MAX_ZOOM));
     }
 
-    /** 归一化 0-1 → zoom */
     private float normToZoom(float norm) {
         return (float) Math.pow(MAX_ZOOM, Math.max(0, Math.min(1, norm)));
     }
 
-    /** zoom → 弧上角度 */
     private float zoomToAngle(float zoom) {
         float norm = zoomToNorm(zoom);
         return ARC_START_ANGLE + norm * ARC_SWEEP_ANGLE;
     }
 
-    /** 弧上角度 → zoom */
     private float angleToZoom(float angle) {
         float norm = (angle - ARC_START_ANGLE) / ARC_SWEEP_ANGLE;
         return normToZoom(norm);
@@ -159,7 +141,7 @@ public class ZoomDialView extends View {
     @Override
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
         int w = MeasureSpec.getSize(widthMeasureSpec);
-        int h = (int)(200 * density); // 足够高度放弧形
+        int h = (int)(200 * density);
         setMeasuredDimension(w, h);
     }
 
@@ -168,7 +150,7 @@ public class ZoomDialView extends View {
         super.onSizeChanged(w, h, ow, oh);
         arcRadius = w * 0.38f;
         arcCenterX = w / 2f;
-        arcCenterY = h * 0.85f; // 圆心在 view 底部附近，弧形向上展开
+        arcCenterY = h * 0.85f;
         android.util.Log.i("ZoomDial", "size=" + w + "x" + h + " radius=" + arcRadius + " center=" + arcCenterX + "," + arcCenterY);
     }
 
@@ -180,18 +162,15 @@ public class ZoomDialView extends View {
             drawArcDial(canvas);
         }
 
-        // 始终画预设按钮（展开时变小变淡）
         drawPresetButtons(canvas);
     }
 
-    /** 画半圆弧刻度盘 */
     private void drawArcDial(Canvas canvas) {
         float alpha = expandProgress;
         int w = getWidth();
         int h = getHeight();
-        float bandWidth = 36 * density;  // 弧形宽度
+        float bandWidth = 36 * density;
 
-        // 弧形背景
         RectF outerOval = new RectF(
                 arcCenterX - arcRadius - bandWidth / 2,
                 arcCenterY - arcRadius - bandWidth / 2,
@@ -203,22 +182,18 @@ public class ZoomDialView extends View {
                 arcCenterX + arcRadius - bandWidth / 2,
                 arcCenterY + arcRadius - bandWidth / 2);
 
-        // 画弧形背景
         arcBgPaint.setAlpha((int)(alpha * 0xDD));
         arcStrokePaint.setAlpha((int)(alpha * 0x33));
 
-        // 用 Path 画环形弧
         Path arcPath = new Path();
         arcPath.arcTo(outerOval, ARC_START_ANGLE, ARC_SWEEP_ANGLE, true);
         arcPath.arcTo(innerOval, ARC_START_ANGLE + ARC_SWEEP_ANGLE, -ARC_SWEEP_ANGLE);
         arcPath.close();
         canvas.drawPath(arcPath, arcBgPaint);
 
-        // 弧形边框
         canvas.drawArc(outerOval, ARC_START_ANGLE, ARC_SWEEP_ANGLE, false, arcStrokePaint);
         canvas.drawArc(innerOval, ARC_START_ANGLE, ARC_SWEEP_ANGLE, false, arcStrokePaint);
 
-        // 刻度线
         for (float tz : TICK_ZOOMS) {
             float angle = zoomToAngle(tz);
             double rad = Math.toRadians(angle);
@@ -240,7 +215,6 @@ public class ZoomDialView extends View {
             tickPaint.setStrokeWidth((isLabel ? 1.5f : 0.8f) * density);
             canvas.drawLine(x1, y1, x2, y2, tickPaint);
 
-            // 标签
             if (isLabel) {
                 float labelR = arcRadius + bandWidth * 0.55f;
                 float lx = arcCenterX + labelR * cos;
@@ -251,13 +225,11 @@ public class ZoomDialView extends View {
             }
         }
 
-        // 当前位置指示器（金色三角 + 圆点）
         float curAngle = zoomToAngle(currentZoom);
         double curRad = Math.toRadians(curAngle);
         float cos = (float) Math.cos(curRad);
         float sin = (float) Math.sin(curRad);
 
-        // 金色圆点在弧上
         float dotR = arcRadius;
         float dotX = arcCenterX + dotR * cos;
         float dotY = arcCenterY + dotR * sin;
@@ -267,7 +239,6 @@ public class ZoomDialView extends View {
         indicatorPaint.setAlpha((int)(alpha * 255));
         canvas.drawCircle(dotX, dotY, 5 * density, indicatorPaint);
 
-        // 当前倍数文字（弧外侧）
         float labelR = arcRadius - bandWidth * 0.7f;
         float labelX = arcCenterX + labelR * cos;
         float labelY = arcCenterY + labelR * sin;
@@ -278,12 +249,11 @@ public class ZoomDialView extends View {
         canvas.drawText(zoomStr, labelX, labelY + 5 * density, zoomLabelPaint);
     }
 
-    /** 画预设按钮 */
     private void drawPresetButtons(Canvas canvas) {
         float btnAlpha = 1f - expandProgress * 0.7f;
         float scale = 1f - expandProgress * 0.3f;
         int w = getWidth();
-        float cy = getHeight() - 40 * density; // 底部
+        float cy = getHeight() - 40 * density;
         float totalW = PRESETS.length * btnSize * scale + (PRESETS.length - 1) * 6 * density;
         float startX = (w - totalW) / 2f;
 
@@ -293,7 +263,6 @@ public class ZoomDialView extends View {
 
             boolean active = isClosestPreset(i);
 
-            // 背景圆
             Paint bg = active ? btnActiveBgPaint : btnBgPaint;
             bg.setAlpha((int)(btnAlpha * (active ? 0x66 : 0x44)));
             canvas.drawCircle(cx, cy, r, bg);
@@ -303,7 +272,6 @@ public class ZoomDialView extends View {
                 canvas.drawCircle(cx, cy, r, btnBorderPaint);
             }
 
-            // 文字
             Paint tp = active ? btnActiveTextPaint : btnTextPaint;
             tp.setAlpha((int)(btnAlpha * (active ? 255 : 0x99)));
             float textY = cy - (tp.descent() + tp.ascent()) / 2;
@@ -345,7 +313,7 @@ public class ZoomDialView extends View {
 
                 if (Math.abs(angleDelta) > 1 || isDragging) {
                     isDragging = true;
-                    // 角度变化映射到 zoom 变化
+
                     float startNorm = zoomToNorm(zoomAtTouchStart);
                     float normDelta = angleDelta / ARC_SWEEP_ANGLE;
                     float newNorm = startNorm + normDelta;
@@ -366,7 +334,6 @@ public class ZoomDialView extends View {
         return super.onTouchEvent(event);
     }
 
-    /** 计算触摸点相对于弧心的角度 */
     private float getTouchAngle(float x, float y) {
         return (float) Math.toDegrees(Math.atan2(y - arcCenterY, x - arcCenterX));
     }

@@ -7,9 +7,6 @@ import android.graphics.Paint;
 import android.util.AttributeSet;
 import android.view.View;
 
-/**
- * 自定义拍照按钮 — 白色圆环 + 内部绿色圆
- */
 public class CaptureButtonView extends View {
 
     private final Paint outerPaint = new Paint(Paint.ANTI_ALIAS_FLAG);

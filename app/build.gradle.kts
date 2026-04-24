@@ -85,13 +85,12 @@ configurations.all {
 }
 
 dependencies {
-    // TensorFlow Lite + GPU
+
     implementation("org.tensorflow:tensorflow-lite:2.14.0")
     implementation("org.tensorflow:tensorflow-lite-support:0.4.4")
     implementation("org.tensorflow:tensorflow-lite-gpu-api:2.14.0")
     implementation("org.tensorflow:tensorflow-lite-gpu:2.14.0")
 
-    // Core
     implementation("androidx.core:core:1.12.0")
     implementation("androidx.appcompat:appcompat:1.6.1")
 }

@@ -4,23 +4,20 @@ import android.content.Context;
 import android.content.SharedPreferences;
 import java.util.Locale;
 
-/**
- * 语言管理器 — 三语切换 (中文/英文/印尼文)
- */
 public class Lang {
 
-    private static int languageMode = 0; // 0=中文, 1=英文, 2=印尼文
+    private static int languageMode = 0;
     private static final String PREFS = "esp_settings";
 
     public static void load(Context ctx) {
-        // 尝试从系统语言自动选择
+
         String systemLang = Locale.getDefault().getLanguage();
         if (systemLang.startsWith("in")) {
-            languageMode = 2; // 印尼文
+            languageMode = 2;
         } else if (systemLang.startsWith("en")) {
-            languageMode = 1; // 英文
+            languageMode = 1;
         } else {
-            // 从SharedPreferences读取保存的语言设置
+
             languageMode = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
                     .getInt("lang_mode", 0);
         }
@@ -41,8 +38,6 @@ public class Lang {
         setLanguage(ctx, newMode);
     }
 
-    // ====== 检测标签 ======
-    // ====== 检测标签 ======
     private static final String[] LABELS_ZH = {
         "人物", "自行车", "汽车", "摩托车", "飞机", "公交车", "火车", "卡车",
         "船", "红绿灯", "消防栓", "停车标志", "停车计时器", "长椅", "鸟", "猫",
@@ -90,7 +85,6 @@ public class Lang {
         }
     }
 
-    // ====== UI 文本 ======
     public static String settings() {
         switch (languageMode) {
             case 1: return "ESP Detection Settings";

@@ -5,14 +5,6 @@ import android.util.Log;
 
 import java.nio.ByteBuffer;
 
-/**
- * Vulkan GPU 前处理器 (JNI 封装)
- *
- * Vulkan Compute Shader 在 GPU 上完成 YUV→RGB + 缩放
- * 耗时 <1ms，零 CPU 占用
- *
- * 如果 Vulkan 不可用（设备不支持），自动回退到 CpuPreprocessor
- */
 public class VulkanPreprocessor {
 
     private static final String TAG = "VulkanPreprocessor";
@@ -20,7 +12,6 @@ public class VulkanPreprocessor {
     private boolean nativeAvailable = false;
     private CpuPreprocessor cpuFallback;
 
-    // 预分配 byte 数组 — 避免 GC
     private byte[] yBytes;
     private byte[] uvBytes;
     private byte[] rgbOutput;
@@ -42,7 +33,7 @@ public class VulkanPreprocessor {
         try {
             nativeAvailable = nativeInit(srcWidth, srcHeight, targetSize);
             if (nativeAvailable) {
-                // 预分配 YUV buffer
+
                 yBytes = new byte[srcWidth * srcHeight];
                 uvBytes = new byte[srcWidth * (srcHeight / 2)];
                 Log.i(TAG, "Vulkan GPU 前处理已启用");
@@ -57,10 +48,6 @@ public class VulkanPreprocessor {
         }
     }
 
-    /**
-     * 处理 Camera2 帧
-     * @return RGB byte[320*320*3] 或 null
-     */
     public byte[] process(Image image) {
         if (nativeAvailable) {
             return processVulkan(image);
@@ -72,7 +59,7 @@ public class VulkanPreprocessor {
     private byte[] processVulkan(Image image) {
         try {
             Image.Plane yPlane = image.getPlanes()[0];
-            Image.Plane uvPlane = image.getPlanes()[2]; // V plane (NV21)
+            Image.Plane uvPlane = image.getPlanes()[2];
 
             ByteBuffer yBuf = yPlane.getBuffer();
             ByteBuffer uvBuf = uvPlane.getBuffer();
@@ -80,7 +67,6 @@ public class VulkanPreprocessor {
             int ySize = yBuf.remaining();
             int uvSize = uvBuf.remaining();
 
-            // 确保预分配数组够大
             if (yBytes.length < ySize) yBytes = new byte[ySize];
             if (uvBytes.length < uvSize) uvBytes = new byte[uvSize];
 
@@ -96,7 +82,7 @@ public class VulkanPreprocessor {
             );
 
             if (ms < 0) {
-                // Vulkan 处理失败，回退
+
                 nativeAvailable = false;
                 return cpuFallback.processYuvImage(image);
             }
@@ -117,7 +103,6 @@ public class VulkanPreprocessor {
         }
     }
 
-    // Native 方法
     private native boolean nativeInit(int srcWidth, int srcHeight, int dstSize);
     private native float nativeProcess(byte[] yData, byte[] uvData,
                                         int yRowStride, int uvRowStride,

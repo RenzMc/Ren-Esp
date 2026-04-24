@@ -38,9 +38,6 @@ import com.detector.esp.utils.DetectionStabilizer;
 import java.util.List;
 import java.util.Locale;
 
-/**
- * 主 Activity — 实时 ESP 检测 + 设置
- */
 public class MainActivity extends Activity {
 
     private static final String TAG = "MainActivity";
@@ -52,7 +49,6 @@ public class MainActivity extends Activity {
     private TextView zoomText;
     private TextView settingsBtn;
 
-    // iPhone 风格变焦
     private ZoomDialView zoomDial;
     private ScaleGestureDetector scaleGestureDetector;
     private float currentZoom = 1.0f;
@@ -70,14 +66,12 @@ public class MainActivity extends Activity {
     private long lastFpsTime = 0;
     private int currentFps = 0;
 
-    // GPS
     private LocationManager locationManager;
     private GnssStatus.Callback gnssCallback;
     private volatile int satelliteCount = 0;
     private long lastCoordUpdateTime = 0;
     private double lastLat = 0, lastLon = 0;
 
-    // 类别过滤设置
     private boolean enablePerson = true;
     private boolean enableVehicle = true;
     private boolean enableAnimal = true;
@@ -156,8 +150,6 @@ public class MainActivity extends Activity {
         }
     }
 
-    // ==================== 设置 ====================
-
     private void loadSettings() {
         SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
         enablePerson = prefs.getBoolean("person", true);
@@ -198,7 +190,6 @@ public class MainActivity extends Activity {
         layout.addView(cbAnimal);
         layout.addView(cbObject);
 
-        // 全选/全不选按钮
         LinearLayout btnRow = new LinearLayout(this);
         btnRow.setOrientation(LinearLayout.HORIZONTAL);
         btnRow.setPadding(0, (int)(12*dp), 0, 0);
@@ -227,7 +218,6 @@ public class MainActivity extends Activity {
         btnRow.addView(allOff);
         layout.addView(btnRow);
 
-        // 卫星查看器按钮
         TextView satBtn = new TextView(this);
         satBtn.setText("🛰 " + Lang.satellite());
         satBtn.setTextColor(0xFF00E676);
@@ -236,7 +226,6 @@ public class MainActivity extends Activity {
         satBtn.setOnClickListener(v2 -> startActivity(new Intent(this, SatelliteActivity.class)));
         layout.addView(satBtn);
 
-        // 语言切换
         TextView langBtn = new TextView(this);
         langBtn.setText("🌐 " + Lang.language());
         langBtn.setTextColor(0xFF00BCD4);
@@ -244,7 +233,7 @@ public class MainActivity extends Activity {
         langBtn.setPadding((int)(8*dp), (int)(12*dp), 0, (int)(8*dp));
         langBtn.setOnClickListener(v3 -> {
             Lang.toggleLanguage(this);
-            // 刷新对话框
+
             ((android.app.Dialog) langBtn.getTag()).dismiss();
             showSettingsDialog();
         });
@@ -277,8 +266,6 @@ public class MainActivity extends Activity {
         return cb;
     }
 
-    // ==================== Pipeline ====================
-
     @Override
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] results) {
         super.onRequestPermissionsResult(requestCode, permissions, results);
@@ -293,14 +280,14 @@ public class MainActivity extends Activity {
 
     private void startPipeline() {
         try {
-            // 使用 SplashActivity 预加载的组件（零等待）
+
             if (AppPreloader.ready) {
                 detector = AppPreloader.detector;
                 cpuPreprocessor = AppPreloader.preprocessor;
                 resultPool = AppPreloader.resultPool;
                 stabilizer = AppPreloader.stabilizer;
             } else {
-                // 回退：直接加载（从设置页返回等情况）
+
                 detector = new YoloDetector(this);
                 cpuPreprocessor = new CpuPreprocessor(detector.getInputSize());
                 resultPool = new DetectResultPool();
@@ -315,7 +302,7 @@ public class MainActivity extends Activity {
                 try { Thread.sleep(500); } catch (InterruptedException ignored) {}
                 int rot = cameraHelper.getSensorOrientation();
                 cpuPreprocessor.setRotation(rot);
-                // 动态 FOV 传给 OverlayView（适配所有手机）
+
                 float vFov = cameraHelper.getVFovDegrees();
                 overlayView.setFov(vFov);
                 Log.i(TAG, "前处理旋转: " + rot + "° FOV: " + vFov + "°");
@@ -422,11 +409,10 @@ public class MainActivity extends Activity {
         LocationListener locationListener = new LocationListener() {
             @Override
             public void onLocationChanged(Location loc) {
-                // 速度实时更新
+
                 overlayView.setGpsSpeed(loc.getSpeed());
                 overlayView.setGpsSatellites(satelliteCount);
 
-                // 坐标每秒更新一次
                 long now = System.currentTimeMillis();
                 if (now - lastCoordUpdateTime >= 1000) {
                     lastLat = loc.getLatitude();
@@ -451,14 +437,13 @@ public class MainActivity extends Activity {
         };
 
         try {
-            locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 100, 0, locationListener);  // 100ms 更新，速度实时
-            // 网络定位备用（室内也能用）
+            locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 100, 0, locationListener);
+
             if (locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)) {
                 locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 2000, 0, locationListener);
             }
             locationManager.registerGnssStatusCallback(gnssCallback);
 
-            // 读取上次已知位置先显示
             Location last = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER);
             if (last == null) last = locationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER);
             if (last != null) {

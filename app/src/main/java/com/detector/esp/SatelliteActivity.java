@@ -17,9 +17,6 @@ import androidx.core.content.ContextCompat;
 
 import com.detector.esp.ui.SkyPlotView;
 
-/**
- * 卫星查看器 — 实时天空图 + 卫星列表
- */
 public class SatelliteActivity extends Activity {
 
     private SkyPlotView skyPlot;
@@ -32,7 +29,6 @@ public class SatelliteActivity extends Activity {
         super.onCreate(savedInstanceState);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
-        // 纯代码布局
         ScrollView scroll = new ScrollView(this);
         scroll.setBackgroundColor(0xFF111111);
 
@@ -40,7 +36,6 @@ public class SatelliteActivity extends Activity {
         root.setOrientation(LinearLayout.VERTICAL);
         root.setPadding(0, 0, 0, 40);
 
-        // 标题
         TextView title = new TextView(this);
         title.setText("🛰 卫星实时监控");
         title.setTextSize(22);
@@ -50,11 +45,9 @@ public class SatelliteActivity extends Activity {
                 android.graphics.Typeface.BOLD));
         root.addView(title);
 
-        // 天空图
         skyPlot = new SkyPlotView(this);
         root.addView(skyPlot);
 
-        // 卫星详情文本
         infoText = new TextView(this);
         infoText.setTextSize(14);
         infoText.setTextColor(0xCCFFFFFF);
